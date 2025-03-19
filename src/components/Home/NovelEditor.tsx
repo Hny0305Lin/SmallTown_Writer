@@ -90,6 +90,7 @@ export default function NovelEditor({ toggleSidebar, sidebarVisible, autoCollabo
   const lastInputValueRef = useRef('');
   const compositionEndTimeoutRef = useRef<number | null>(null);
   const collaborationInitializedRef = useRef(false);
+  const symbolConversionTimeoutRef = useRef<number | null>(null);
   const { getNovelSettings } = useSettingsStore();
 
   // 添加光标和选择区域状态
@@ -130,6 +131,155 @@ export default function NovelEditor({ toggleSidebar, sidebarVisible, autoCollabo
       totalAway: awayUsers.length
     };
   };
+
+  // 符号映射表
+  const symbolMap: Record<string, string> = {
+    '"': '"', // 左双引号
+    '\'': '"', // 右双引号，使用单引号作为键
+    '(': '（',
+    ')': '）',
+    '<': '《',
+    '>': '》',
+    '[': '【',
+    ']': '】',
+    ',': '，',
+    '.': '。',
+    ':': '：',
+    ';': '；',
+    '?': '？',
+    '!': '！',
+    '`': '·',
+    '~': '～',
+    '@': '＠',
+    '#': '＃',
+    '$': '￥',
+    '%': '％',
+    '^': '……',
+    '&': '＆',
+    '*': '＊',
+    '_': '——',
+    '+': '＋',
+    '=': '＝',
+    '{': '｛',
+    '}': '｝',
+    '|': '｜',
+    '\\': '、',
+    '/': '／'
+  };
+
+  // 检查并转换符号的函数
+  const convertSymbols = useCallback((text: string, cursorPosition: number): { text: string, newPosition: number } => {
+    let newText = text;
+    let newPosition = cursorPosition;
+    let offset = 0;
+
+    // 遍历文本中的每个字符
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const replacement = symbolMap[char];
+      
+      // 如果找到匹配的符号并且不在中文输入过程中
+      if (replacement && !isComposing) {
+        // 替换字符
+        newText = newText.substring(0, i + offset) + replacement + newText.substring(i + offset + 1);
+        
+        // 如果替换发生在光标位置之前，需要调整光标位置
+        if (i < cursorPosition) {
+          // 由于中文符号通常是全角的，可能需要调整光标位置
+          newPosition += (replacement.length - 1);
+        }
+        offset += (replacement.length - 1);
+      }
+    }
+
+    return { text: newText, newPosition };
+  }, [isComposing]);
+
+  // 修改handleContentChange函数
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    // 发送用户活动状态
+    if (collaborationMode && userId) {
+      websocketService.sendUserActivity(userId, 'typing');
+    }
+    
+    // 如果正在进行中文输入，只更新本地内容，不发送操作
+    if (isComposing) {
+      setContent(newContent);
+      return;
+    }
+    
+    // 清除之前的符号转换定时器
+    if (symbolConversionTimeoutRef.current) {
+      window.clearTimeout(symbolConversionTimeoutRef.current);
+    }
+    
+    // 设置新的定时器来延迟转换符号
+    symbolConversionTimeoutRef.current = window.setTimeout(() => {
+      const { text: convertedContent, newPosition } = convertSymbols(newContent, cursorPosition);
+      
+      if (convertedContent !== newContent) {
+        setContent(convertedContent);
+        
+        // 恢复光标位置
+        if (editorRef.current) {
+          editorRef.current.selectionStart = newPosition;
+          editorRef.current.selectionEnd = newPosition;
+        }
+        
+        // 更新最后的输入值
+        lastInputValueRef.current = convertedContent;
+        
+        // 标记内容已改变，用于自动保存
+        contentChangedRef.current = true;
+        
+        // 如果在协作模式下，发送更新
+        if (collaborationMode && currentNovel) {
+          try {
+            websocketService.sendOperation({
+              type: 'sync',
+              userId,
+              content: convertedContent
+            });
+            console.log("已同步转换后的内容");
+          } catch (error) {
+            console.error("同步转换后的内容错误:", error);
+          }
+        }
+      }
+    }, 1000);
+    
+    // 立即更新内容，不等待符号转换
+    setContent(newContent);
+    lastInputValueRef.current = newContent;
+    contentChangedRef.current = true;
+    
+    // 如果不是协作模式或没有选择小说，只更新本地状态
+    if (!collaborationMode || !currentNovel) return;
+    
+    // 发送当前内容
+    try {
+      websocketService.sendOperation({
+        type: 'sync',
+        userId,
+        content: newContent
+      });
+      console.log("已同步完整内容");
+    } catch (error) {
+      console.error("同步内容错误:", error);
+    }
+  };
+
+  // 清理符号转换定时器
+  useEffect(() => {
+    return () => {
+      if (symbolConversionTimeoutRef.current) {
+        window.clearTimeout(symbolConversionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 处理插入操作
   const handleInsertOperation = useCallback((position: number, text: string) => {
@@ -647,48 +797,6 @@ export default function NovelEditor({ toggleSidebar, sidebarVisible, autoCollabo
     };
   }, [collaborationMode, userId, editorRef.current]);
 
-  // 修改handleContentChange函数，添加活动通知
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    
-    // 发送用户活动状态
-    if (collaborationMode && userId) {
-      websocketService.sendUserActivity(userId, 'typing');
-    }
-    
-    // 如果正在进行中文输入，只更新本地内容，不发送操作
-    if (isComposing) {
-      setContent(newContent);
-      return;
-    }
-    
-    // 只有当不是在中文输入过程中时，才处理变更和同步
-    if (!isComposing) {
-      setContent(newContent);
-      lastInputValueRef.current = newContent;
-      
-      // 标记内容已改变，用于自动保存
-      contentChangedRef.current = true;
-      
-      // 如果不是协作模式或没有选择小说，只更新本地状态
-      if (!collaborationMode || !currentNovel) return;
-      
-      // 尝试发送更改
-      setTimeout(() => {
-        try {
-          websocketService.sendOperation({
-            type: 'sync',
-            userId,
-            content: newContent
-          });
-          console.log("已同步完整内容");
-        } catch (error) {
-          console.error("同步内容错误:", error);
-        }
-      }, 10);
-    }
-  };
-  
   // 重写组合输入处理函数
   const handleCompositionStart = () => {
     console.log("输入法组合输入开始");
