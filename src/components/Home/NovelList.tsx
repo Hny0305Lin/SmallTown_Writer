@@ -278,21 +278,17 @@ export default function NovelList() {
                         formatDate(novel.lastEdited) : 
                         (novel.lastEdited ? formatDate(new Date(novel.lastEdited)) : '未知时间')}
                     </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        mt: 1,
-                        maxHeight: '4.5em',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                    >
+                    <Typography variant="body2" color="text.secondary" sx={{ 
+                      mt: 1,
+                      maxHeight: '4.5em',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
                       {typeof novel.content === 'string' ? 
-                        novel.content : 
+                        (novel.content.substring(0, 150) + (novel.content.length > 150 ? '...' : '')) : 
                         '无内容'}
                     </Typography>
                   </CardContent>
@@ -336,21 +332,18 @@ export default function NovelList() {
                       formatDate(novel.lastEdited) : 
                       (novel.lastEdited ? formatDate(new Date(novel.lastEdited)) : '未知时间')}
                   </Typography>
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      mt: 2, 
-                      mb: 2,
-                      maxHeight: '6em',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 4,
-                      WebkitBoxOrient: 'vertical',
-                    }}
-                  >
+                  <Typography variant="body1" sx={{ 
+                    mt: 2, 
+                    mb: 2,
+                    maxHeight: '6em',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
                     {typeof novel.content === 'string' ? 
-                      (novel.content.length > 0 ? novel.content : '暂无内容') : 
+                      (novel.content.length > 0 ? novel.content.substring(0, 300) + (novel.content.length > 300 ? '...' : '') : '暂无内容') : 
                       '无内容'}
                   </Typography>
                   {novel.collaborationActive && (
@@ -425,21 +418,17 @@ export default function NovelList() {
                         formatDate(novel.lastEdited) : 
                         (novel.lastEdited ? formatDate(new Date(novel.lastEdited)) : '未知时间')}
                     </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        mt: 1,
-                        maxHeight: '4.5em',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                    >
+                    <Typography variant="body2" color="text.secondary" sx={{ 
+                      mt: 1,
+                      maxHeight: '4.5em',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
                       {typeof novel.content === 'string' ? 
-                        novel.content : 
+                        (novel.content.substring(0, 150) + (novel.content.length > 150 ? '...' : '')) : 
                         '无内容'}
                     </Typography>
                   </CardContent>
